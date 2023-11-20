@@ -1,0 +1,105 @@
+heat_template_version: "2021-04-16"
+
+description: "Projet Cloud Infra Usage"
+
+parameters:
+  key_name:
+    type: string
+    description: Name of keypair to assign to servers
+    default: IAI3_10_keypair
+  frontend_vm_name:
+    type: string
+    description: Name given to the frontend VM
+    default: IAI3_10_frontend_vm
+  backend_vm_name:
+    type: string
+    description: Name given to the backend VM
+    default: IAI3_10_backend_vm
+  storage_vm_name:
+    type: string
+    description: Name given to the storage VM
+    default: IAI3_10_storage_vm
+  network_name:
+    type: string
+    description: Name given to the network
+    default: IAI3_10_network
+  network_subnet_cidr:
+    type: string
+    description: CIDR of the subnetwork
+    default: 10.100.0.0/24
+  gateway_ip:
+    type: string
+    description: Gateway IP of the subnetwork
+    default: 10.100.0.254
+  router_name:
+    type: string
+    description: Name given to the router
+    default: IAI3_10_router
+  image:
+    type: string
+    description: Name or ID of image to use for servers
+    default: debian12_docker
+  flavor:
+    type: string
+    description: Name of Flavor to use for servers
+    default: IAI3_TP
+
+# os_neutron_port: déf. une adresse ip pour la connaitre dedans le docker compose
+
+resources:
+  frontend_server:
+    type: OS::Nova::Server
+    properties:
+      name: { get_param: frontend_vm_name }
+      image: { get_param: image }
+      flavor: { get_param: flavor }
+      networks:
+        - network: { get_param: network_id }
+
+  backend_server:
+    type: OS::Nova::Server
+    properties:
+      name: { get_param: backend_vm_name }
+      image: { get_param: image }
+      flavor: { get_param: flavor }
+      networks:
+        - network: { get_param: network_id }
+
+  storage_server:
+    type: OS::Cinder::Volume
+    properties:
+      name: { get_param: storage_vm_name }
+      size: 2
+      # availability_zone: nova
+      # volume_type: 1a72d220-64c0-4fac-b57f-fbf4e4550bb2 # __DEFAULT__
+
+  storage_attachment:
+    type: OS::Cinder::VolumeAttachment
+    properties:
+      name: IAI3_10_storage_attachment
+      instance_uuid: { get_resource: backend_server }
+      volume_id: { get_resource: storage_server }
+      mountpoint: /mnt/db
+
+  network:
+    type: OS::Neutron::Net
+    properties:
+      name: { get_param: network_name }
+
+  subnet:
+    type: OS::Neutron::Subnet
+    properties:
+      network_id: { get_resource: network }
+      cidr: { get_param: network_subnet_cidr }
+      gateway_ip: { get_param: gateway_ip }
+
+  router:
+    type: OS::Neutron::Router
+    properties:
+      name: { get_param: router_name }
+
+  interface:
+    type: OS::Neutron::RouterInterface
+    properties:
+      router_id: { get_resource: router }
+      subnet_id: { get_resource: subnet }
