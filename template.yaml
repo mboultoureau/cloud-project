@@ -137,6 +137,16 @@ resources:
       key_name: { get_resource: frontend_keypair }
       networks:
         - port: { get_resource: frontend_port }
+      user_data_format: RAW
+      user_data: |
+        # cloud-config
+        users:
+          - name: test
+            plain_text_password: test
+            home: /home/test
+            lock_passwd: false
+            shell: /bin/bash
+        final_message: "User 'test' created."
 
   # Backend
 
@@ -146,6 +156,9 @@ resources:
       network_id: { get_resource: network }
       fixed_ips:
         - subnet_id: { get_resource: subnet }
+      security_groups:
+        - default
+        - { get_resource: backend_security_group }
 
   backend_keypair:
     type: OS::Nova::KeyPair
