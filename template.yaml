@@ -23,6 +23,10 @@ parameters:
     type: string
     description: Name given to the frontend VM
     default: IAI3_10_frontend_vm
+  frontend_ip_address:
+    type: string
+    description: Public IP address assigned to the frontend VM
+    default: 148.60.225.243
   backend_vm_name:
     type: string
     description: Name given to the backend VM
@@ -38,7 +42,7 @@ parameters:
   flavor:
     type: string
     description: Name of Flavor to use for servers
-    default: m1.mini
+    default: m1.medium
 
 resources:
   # Network
@@ -53,7 +57,7 @@ resources:
     properties:
       network_id: { get_resource: network }
       cidr: { get_param: network_subnet_cidr }
-      #gateway_ip: { get_param: gateway_ip }
+      #gateway_ip: { get_param: gateway_ip } TODO
 
   # Router
 
@@ -87,18 +91,26 @@ resources:
     properties:
       name: frontend_security_group
       rules:
+        # SSL
         - direction: ingress
           protocol: tcp
           port_range_min: 22
           port_range_max: 22
+        # HTTP
         - direction: ingress
           protocol: tcp
           port_range_min: 80
           port_range_max: 80
+        # HTTPS
         - direction: ingress
           protocol: tcp
           port_range_min: 443
           port_range_max: 443
+        # Reverse Proxy Dashboard
+        - direction: ingress
+          protocol: tcp
+          port_range_min: 8080
+          port_range_max: 8080
 
   frontend_port:
     type: OS::Neutron::Port
@@ -106,6 +118,7 @@ resources:
       network_id: { get_resource: network }
       fixed_ips:
         - subnet_id: { get_resource: subnet }
+          ip_address: { get_param: frontend_ip_address }
       security_groups:
         - default
         - { get_resource: frontend_security_group }
@@ -115,7 +128,6 @@ resources:
     properties:
       name: frontend_keypair
       save_private_key: true
-      #type: ssh
 
   floating_ip_frontend:
     type: OS::Neutron::FloatingIP
@@ -138,15 +150,27 @@ resources:
       networks:
         - port: { get_resource: frontend_port }
       user_data_format: RAW
-      user_data: |
-        # cloud-config
-        users:
-          - name: test
-            plain_text_password: test
-            home: /home/test
-            lock_passwd: false
-            shell: /bin/bash
-        final_message: "User 'test' created."
+      user_data:
+        str_replace:
+          template: |
+            #cloud-config
+            users:
+              - name: frontend
+                plain_text_passwd: password
+                home: /home/frontend
+                lock_passwd: false
+                shell: /bin/bash
+                groups: [sudo, docker]
+            runcmd:
+              - cd /home/frontend
+              - git clone "https://github.com/mboultoureau/roland-garros"
+              - chown -R frontend:frontend roland-garros
+              - cd roland-garros
+              - export FRONTEND_URL=$FRONTEND_IP_ADDRESS
+              - docker-compose up -d frontend
+            final_message: "Frontend server initialized successfully."
+          params:
+            $FRONTEND_IP_ADDRESS: { get_param: frontend_ip_address }
 
   # Backend
 
@@ -165,7 +189,6 @@ resources:
     properties:
       name: backend_keypair
       save_private_key: true
-      #type: ssh
 
   backend_security_group:
     type: OS::Neutron::SecurityGroup
@@ -182,6 +205,23 @@ resources:
       key_name: { get_resource: backend_keypair }
       networks:
         - port: { get_resource: backend_port }
+      user_data_format: RAW
+      user_data: |
+        #cloud-config
+        users:
+          - name: backend
+            plain_text_passwd: password
+            home: /home/backend
+            lock_passwd: false
+            shell: /bin/bash
+            groups: [sudo, docker]
+        runcmd:
+          - cd /home/backend
+          - git clone "https://github.com/mboultoureau/roland-garros"
+          - chown -R backend:backend roland-garros
+          - cd roland-garros
+          - docker-compose up -d backend mysql
+        final_message: "Backend server initialized successfully."
 
   # Storage
 
@@ -207,3 +247,20 @@ outputs:
 
   floating_ip_frontend_association:
     value: { get_attr: [floating_ip_frontend_association, show] } # TODO: no output, fix
+
+# TODO : fixer le pb des erreurs réseau sur la stack
+
+# TODO tester l'adresse publique ajoutée au front
+
+# TODO Utiliser une config séparée:
+#frontend_user_data:
+#	type: OS::Heat::SoftwareConfig
+#	properties:
+#		config: |
+#			#!/bin/bash
+#			cd ~/frontend
+#			docker-compose -p "fgjrhj" -f path/dockercompose.yaml up -d
+#			d
+
+# user_data_format: SOFTWARE_CONFIG
+# user_data: { get_resource: mon user config }
