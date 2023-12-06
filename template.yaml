@@ -11,6 +11,10 @@ parameters:
     type: string
     description: CIDR of the subnetwork
     default: 10.100.0.0/24
+  external_subnet:
+    type: string
+    description: name of the external subnetwork
+    default: External-subnet
   gateway_name:
     type: string
     description: Gateway IP of the subnetwork
@@ -26,7 +30,7 @@ parameters:
   frontend_ip_address:
     type: string
     description: Public IP address assigned to the frontend VM
-    default: 148.60.225.243
+    default: 148.60.225.226
   backend_vm_name:
     type: string
     description: Name given to the backend VM
@@ -118,6 +122,16 @@ resources:
       network_id: { get_resource: network }
       fixed_ips:
         - subnet_id: { get_resource: subnet }
+      security_groups:
+        - default
+        - { get_resource: frontend_security_group }
+
+  public_frontend_port:
+    type: OS::Neutron::Port
+    properties:
+      network_id: { get_resource: network }
+      fixed_ips:
+        - subnet_id: 2e7d9dea-44e4-4ca8-bb4a-77babcbd4abb # External-ENSSAT = { get_resource: { get_param: external_subnet } } marche pas
           ip_address: { get_param: frontend_ip_address }
       security_groups:
         - default
@@ -132,13 +146,14 @@ resources:
   floating_ip_frontend:
     type: OS::Neutron::FloatingIP
     properties:
-      floating_network: { get_param: gateway_name }
+      fixed_ip_address: { get_param: frontend_ip_address }
+      floating_network_id: b2f07d8a-5b46-4fc8-a54e-e9cf4de8bee0 # { get_param: gateway_name }
+      port_id: { get_resource: public_frontend_port }
 
-  floating_ip_frontend_association:
-    type: OS::Neutron::FloatingIPAssociation 
-    properties:
-      floatingip_id: { get_resource: floating_ip_frontend }
-      port_id: { get_resource: frontend_port }
+  #floating_ip_frontend_association:
+  #  type: OS::Neutron::FloatingIPAssociation 
+  #  properties:
+  #    floatingip_id: { get_resource: floating_ip_frontend }
 
   frontend_server:
     type: OS::Nova::Server
@@ -166,8 +181,8 @@ resources:
               - git clone "https://github.com/mboultoureau/roland-garros"
               - chown -R frontend:frontend roland-garros
               - cd roland-garros
-              - export FRONTEND_URL=$FRONTEND_IP_ADDRESS
-              - docker-compose up -d frontend
+              - echo "FRONTEND_URL=$FRONTEND_IP_ADDRESS" > .env.file
+              - docker compose --env-file ./.env.file up -d frontend reverse-proxy
             final_message: "Frontend server initialized successfully."
           params:
             $FRONTEND_IP_ADDRESS: { get_param: frontend_ip_address }
@@ -245,8 +260,8 @@ outputs:
   backend_private_key:
     value: { get_attr: [backend_keypair, private_key] }
 
-  floating_ip_frontend_association:
-    value: { get_attr: [floating_ip_frontend_association, show] } # TODO: no output, fix
+  #floating_ip_frontend_association:
+  #  value: { get_attr: [floating_ip_frontend_association, show] } # TODO: no output, fix
 
 # TODO : fixer le pb des erreurs réseau sur la stack
 
