@@ -15,3 +15,9 @@ Ce projet vise à déployer automatiquement une application complexe (<i>fronten
 Pour accéder au serveur `backend` qui ne dispose pas d’adresse publique, on procède par rebond depuis le serveur ̀ frontend` :
 
 * ssh `backend@<backend_instance_private_IP>` puis saisir le mot de passe
+
+
+# TODO
+- Utiliser le storage
+- Mettre au propre les Docker Compose et le mettre dans le projet direct
+- Ecrire une doc et un schéma

@@ -23,22 +23,6 @@ parameters:
     type: string
     description: Name given to the router
     default: IAI3_10_router
-  frontend_vm_name:
-    type: string
-    description: Name given to the frontend VM
-    default: IAI3_10_frontend_vm
-  frontend_ip_address:
-    type: string
-    description: Public IP address assigned to the frontend VM
-    default: 148.60.225.226
-  backend_vm_name:
-    type: string
-    description: Name given to the backend VM
-    default: IAI3_10_backend_vm
-  storage_vm_name:
-    type: string
-    description: Name given to the storage VM
-    default: IAI3_10_storage_vm
   image:
     type: string
     description: Name or ID of image to use for servers
@@ -48,9 +32,38 @@ parameters:
     description: Name of Flavor to use for servers
     default: m1.medium
 
-resources:
-  # Network
+  # FRONTEND
+  frontend_vm_name:
+    type: string
+    description: Name given to the frontend VM
+    default: IAI3_10_frontend_vm
 
+  # BACKEND
+  backend_docker_name:
+    type: string
+    description: Name given to the backend docker (because the server block mvn connection in docker for no reason)
+    default: 148.60.225.81:5000/iai3_10_backend:latest
+  backend_vm_name:
+    type: string
+    description: Name given to the backend VM
+    default: IAI3_10_backend_vm
+
+  # DATABASE
+  database_ip_address:
+    type: string
+    description: Fixed IP address of the backend server
+    default: 10.100.0.42
+  database_vm_name:
+    type: string
+    description: Name given to the database VM
+    default: IAI3_10_database_vm
+  storage_vm_name:
+    type: string
+    description: Name given to the storage VM
+    default: IAI3_10_storage_vm
+
+resources:
+  # NETWORK
   network:
     type: OS::Neutron::Net
     properties:
@@ -61,9 +74,6 @@ resources:
     properties:
       network_id: { get_resource: network }
       cidr: { get_param: network_subnet_cidr }
-      #gateway_ip: { get_param: gateway_ip } TODO
-
-  # Router
 
   router_port:
     type: OS::Neutron::Port
@@ -76,11 +86,8 @@ resources:
     type: OS::Neutron::Router
     properties:
       name: { get_param: router_name }
-      # TODO: missing related port (gateway of subnet previously created)
       external_gateway_info:
         network: { get_param: gateway_name }
-
-  # Interface
 
   interface:
     type: OS::Neutron::RouterInterface
@@ -88,8 +95,7 @@ resources:
       router_id: { get_resource: router }
       subnet_id: { get_resource: subnet }
 
-  # Frontend
-
+  # FRONTEND
   frontend_security_group:
     type: OS::Neutron::SecurityGroup
     properties:
@@ -126,17 +132,6 @@ resources:
         - default
         - { get_resource: frontend_security_group }
 
-  # public_frontend_port:
-  #   type: OS::Neutron::Port
-  #   properties:
-  #     network_id: b2f07d8a-5b46-4fc8-a54e-e9cf4de8bee0
-  #     fixed_ips:
-  #       - subnet_id: 2e7d9dea-44e4-4ca8-bb4a-77babcbd4abb # External-ENSSAT = { get_resource: { get_param: external_subnet } } marche pas
-  #         ip_address: { get_param: frontend_ip_address }
-  #     security_groups:
-  #       - default
-  #       - { get_resource: frontend_security_group }
-
   frontend_keypair:
     type: OS::Nova::KeyPair
     properties:
@@ -147,9 +142,6 @@ resources:
     type: OS::Neutron::FloatingIP
     properties:
       floating_network: { get_param: gateway_name }
-      # fixed_ip_address: { get_param: frontend_ip_address }
-      # floating_network_id: b2f07d8a-5b46-4fc8-a54e-e9cf4de8bee0 # { get_param: gateway_name }
-      # port_id: { get_resource: public_frontend_port }
 
   floating_ip_frontend_association:
    type: OS::Neutron::FloatingIPAssociation 
@@ -159,6 +151,8 @@ resources:
 
   frontend_server:
     type: OS::Nova::Server
+    depends_on:
+      - backend_server
     properties:
       name: { get_param: frontend_vm_name }
       image: { get_param: image }
@@ -184,13 +178,14 @@ resources:
               - chown -R frontend:frontend roland-garros
               - cd roland-garros
               - echo "FRONTEND_URL=$FRONTEND_IP_ADDRESS" > .env.file
-              - docker compose --env-file ./.env.file up -d frontend reverse-proxy
+              - echo "BACKEND_URL=$BACKEND_IP_ADDRESS" >> .env.file
+              - docker compose --env-file ./.env.file up -d reverse-proxy frontend
             final_message: "Frontend server initialized successfully."
           params:
             $FRONTEND_IP_ADDRESS: { get_attr: [floating_ip_frontend, floating_ip_address] }
+            $BACKEND_IP_ADDRESS: { get_attr: [floating_ip_backend, floating_ip_address] }
 
-  # Backend
-
+  # BACKEND
   backend_port:
     type: OS::Neutron::Port
     properties:
@@ -211,10 +206,43 @@ resources:
     type: OS::Neutron::SecurityGroup
     properties:
       name: backend_security_group
-      rules: []
+      rules:
+        # SSL
+        - direction: ingress
+          protocol: tcp
+          port_range_min: 22
+          port_range_max: 22
+        # HTTP
+        - direction: ingress
+          protocol: tcp
+          port_range_min: 80
+          port_range_max: 80
+        # HTTPS
+        - direction: ingress
+          protocol: tcp
+          port_range_min: 443
+          port_range_max: 443
+        # Reverse Proxy Dashboard
+        - direction: ingress
+          protocol: tcp
+          port_range_min: 8080
+          port_range_max: 8080
+
+  floating_ip_backend:
+    type: OS::Neutron::FloatingIP
+    properties:
+      floating_network: { get_param: gateway_name }
+
+  floating_ip_backend_association:
+   type: OS::Neutron::FloatingIPAssociation 
+   properties:
+     floatingip_id: { get_resource: floating_ip_backend }
+     port_id: { get_resource: backend_port }
 
   backend_server:
     type: OS::Nova::Server
+    depends_on:
+      - database_server
     properties:
       name: { get_param: backend_vm_name }
       image: { get_param: image }
@@ -223,25 +251,83 @@ resources:
       networks:
         - port: { get_resource: backend_port }
       user_data_format: RAW
+      user_data:
+        str_replace:
+          template: |
+            #cloud-config
+            users:
+              - name: backend
+                plain_text_passwd: password
+                home: /home/backend
+                lock_passwd: false
+                shell: /bin/bash
+                groups: [sudo, docker]
+            runcmd:
+              - cd /home/backend
+              - git clone "https://github.com/mboultoureau/roland-garros"
+              - chown -R backend:backend roland-garros
+              - cd roland-garros
+              - echo "BACKEND_URL=$BACKEND_IP_ADDRESS" > .env.file
+              - docker network create web
+              - docker run -v /var/run/docker.sock:/var/run/docker.sock -p 80:80 -p 8080:8080 --network web -d traefik:v2.9 --api.insecure=true --providers.docker.network=web
+              - docker pull $BACKEND_DOCKER_NAME
+              - sleep 60 # Wait for the database to be initialized
+              - docker run -v ./backend:/app -e DATABASE_URL=$MYSQL_ADDRESS -e APP_PORT=80 --network web --label "traefik.http.routers.backend.rule=Host(\`$BACKEND_IP_ADDRESS\`)" -d $BACKEND_DOCKER_NAME mvn -o spring-boot:run
+            final_message: "Backend server initialized successfully."
+          params:
+            $MYSQL_ADDRESS: { get_param: database_ip_address }
+            $BACKEND_DOCKER_NAME: { get_param: backend_docker_name }
+            $BACKEND_IP_ADDRESS: { get_attr: [floating_ip_backend, floating_ip_address] }
+
+  # DATABASE
+  database_port:
+    type: OS::Neutron::Port
+    properties:
+      network_id: { get_resource: network }
+      fixed_ips:
+        - subnet_id: { get_resource: subnet }
+          ip_address: { get_param: database_ip_address }
+      security_groups:
+        - default
+        - { get_resource: database_security_group }
+
+  database_keypair:
+    type: OS::Nova::KeyPair
+    properties:
+      name: database_keypair
+      save_private_key: true
+
+  database_security_group:
+    type: OS::Neutron::SecurityGroup
+    properties:
+      name: database_security_group
+      rules: []
+
+  database_server:
+    type: OS::Nova::Server
+    properties:
+      name: { get_param: database_vm_name }
+      image: { get_param: image }
+      flavor: { get_param: flavor }
+      key_name: { get_resource: database_keypair }
+      networks:
+        - port: { get_resource: database_port }
+      user_data_format: RAW
       user_data: |
         #cloud-config
         users:
-          - name: backend
+          - name: database
             plain_text_passwd: password
-            home: /home/backend
+            home: /home/database
             lock_passwd: false
             shell: /bin/bash
             groups: [sudo, docker]
         runcmd:
-          - cd /home/backend
-          - git clone "https://github.com/mboultoureau/roland-garros"
-          - chown -R backend:backend roland-garros
-          - cd roland-garros
-          - docker-compose up -d backend mysql
-        final_message: "Backend server initialized successfully."
+          - cd /home/database
+          - docker run -e MYSQL_ROOT_PASSWORD=root -e MYSQL_USER=user -e MYSQL_PASSWORD=password -e MYSQL_DATABASE=rolandgarros -p 3306:3306 mysql:8.0
+        final_message: "Database server initialized successfully."
 
-  # Storage
-
+  # STORAGE
   storage_server:
     type: OS::Cinder::Volume
     properties:
@@ -251,7 +337,7 @@ resources:
   storage_attachment:
     type: OS::Cinder::VolumeAttachment
     properties:
-      instance_uuid: { get_resource: backend_server }
+      instance_uuid: { get_resource: database_server }
       volume_id: { get_resource: storage_server }
       mountpoint: /dev/vdb
 
@@ -265,22 +351,5 @@ outputs:
   backend_private_key:
     value: { get_attr: [backend_keypair, private_key] }
 
-  #floating_ip_frontend_association:
-  #  value: { get_attr: [floating_ip_frontend_association, show] } # TODO: no output, fix
-
-# TODO : fixer le pb des erreurs réseau sur la stack
-
-# TODO tester l'adresse publique ajoutée au front
-
-# TODO Utiliser une config séparée:
-#frontend_user_data:
-#	type: OS::Heat::SoftwareConfig
-#	properties:
-#		config: |
-#			#!/bin/bash
-#			cd ~/frontend
-#			docker-compose -p "fgjrhj" -f path/dockercompose.yaml up -d
-#			d
-
-# user_data_format: SOFTWARE_CONFIG
-# user_data: { get_resource: mon user config }
+  database_private_key:
+    value: { get_attr: [database_keypair, private_key] }
