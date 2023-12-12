@@ -1,0 +1,52 @@
+version: '3'
+services:
+  # Traefik
+  reverse-proxy:
+    image: traefik:v2.9
+    command: --api.insecure=true --providers.docker.network=web
+    ports:
+      - "80:80"
+      - "8080:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  # MySQL
+  mysql:
+    image: mysql:8.0
+    restart: always
+    environment:
+      - MYSQL_ROOT_PASSWORD=root
+      - MYSQL_USER=user
+      - MYSQL_PASSWORD=password
+      - MYSQL_DATABASE=rolandgarros
+    volumes:
+      - /dev/vdb/database:/var/lib/mysql
+
+  # Backend
+  backend:
+    image: 148.60.225.81:5000/iai3_10_backend:latest
+    command: mvn -o spring-boot:run
+    depends_on:
+      - mysql
+    volumes:
+      - ./backend:/app
+    labels:
+      - "traefik.http.routers.backend.rule=Host(`${BACKEND_URL:-backend.localhost}`)"
+    environment:
+      - DATABASE_URL=mysql
+      - APP_PORT=80
+      - BACKEND_URL=${BACKEND_URL:-backend.localhost}
+
+  # Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    command: sh -c "npm install && quasar build && quasar serve /app/dist/spa"
+    volumes:
+      - ./frontend:/app
+    labels:
+      - "traefik.http.routers.frontend.rule=Host(`${FRONTEND_URL:-app.localhost}`)"
+    environment:
+      - BACKEND_URL=${BACKEND_URL:-backend.localhost}
+

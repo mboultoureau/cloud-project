@@ -1,0 +1,57 @@
+version: '3'
+services:
+  # Traefik
+  reverse-proxy:
+    image: traefik:v2.9
+    command:
+      --api.insecure=true
+      --providers.docker
+    ports:
+      - "80:80"
+      - "8080:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  # Backend
+  backend:
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile
+    command: mvn -o spring-boot:run
+    depends_on:
+      - mysql
+    volumes:
+      - ./backend:/app
+    labels:
+      - "traefik.http.routers.backend.rule=Host(`${BACKEND_URL:-backend.localhost}`)"
+    environment:
+      - DATABASE_URL=mysql
+      - APP_PORT=80
+      - BACKEND_URL=${BACKEND_URL:-backend.localhost}
+
+  # MySQL
+  mysql:
+    image: mysql:8.0
+    restart: always
+    ports:
+      - "3306:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=root
+      - MYSQL_USER=user
+      - MYSQL_PASSWORD=password
+      - MYSQL_DATABASE=rolandgarros
+
+  # phpMyAdmin
+  phpmyadmin:
+    image: phpmyadmin
+    restart: always
+    ports:
+      - "8001:80"
+    depends_on:
+      - mysql
+    environment:
+      - PMA_HOST=mysql
+      - PMA_USER=root
+      - PMA_PASSWORD=root
+    labels:
+      - "traefik.http.routers.phpmyadmin.rule=Host(`phpmyadmin.localhost`)"
