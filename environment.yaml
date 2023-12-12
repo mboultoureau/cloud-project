@@ -1,1 +1,13 @@
-parameters: []
+parameters:
+  - network_name: IAI3_10_network
+  - network_subnet_cidr: 10.100.0.0/24
+  - gateway_name: External-ENSSAT
+  - router_name: IAI3_10_router
+  - frontend_image: debian12_docker
+  - frontend_flavor: m1.medium
+  - backend_image: debian12_docker
+  - backend_flavor: m1.medium
+  - database_image: debian12_docker
+  - database_flavor: m1.mini
+  - storage_volume_size: 2
+  - storage_mountpoint: /dev/vdb

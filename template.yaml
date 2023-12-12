@@ -3,6 +3,7 @@ heat_template_version: "2021-04-16"
 description: "Projet Cloud Infra Usage"
 
 parameters:
+  # Network
   network_name:
     type: string
     description: Name given to the network
@@ -19,22 +20,46 @@ parameters:
     type: string
     description: Name given to the router
     default: IAI3_10_router
-  image:
+
+  # Frontend
+  frontend_image:
     type: string
-    description: Name or ID of image to use for servers
+    description: Name or ID of image to use for frontend server
     default: debian12_docker
-  flavor_frontend:
+  frontend_flavor:
     type: string
     description: Name of flavor for frontend server
-    default: m1.mini
-  flavor_backend:
+    default: m1.medium
+
+  # Backend
+  backend_image:
+    type: string
+    description: Name or ID of image to use for backend server
+    default: debian12_docker
+  backend_flavor:
     type: string
     description: Name of flavor for backend server
     default: m1.medium
-  flavor_database:
+
+  # Database
+  database_image:
+    type: string
+    description: Name or ID of image to use for database server
+    default: debian12_docker
+  database_flavor:
     type: string
     description: Name of flavor for database server
     default: m1.mini
+
+  # Storage
+  storage_volume_size:
+    type: number
+    description: Size of storage volume (in GB)
+    default: 2
+  storage_mountpoint: 
+    type: string
+    description: Mountpoint for storage volume in the database server
+    default: /dev/vdb
 
   # FRONTEND
   frontend_vm_name:
@@ -159,8 +184,8 @@ resources:
       - backend_server
     properties:
       name: { get_param: frontend_vm_name }
-      image: { get_param: image }
-      flavor: { get_param: flavor_frontend }
+      image: { get_param: frontend_image }
+      flavor: { get_param: frontend_flavor }
       key_name: { get_resource: frontend_keypair }
       networks:
         - port: { get_resource: frontend_port }
@@ -249,8 +274,8 @@ resources:
       - database_server
     properties:
       name: { get_param: backend_vm_name }
-      image: { get_param: image }
-      flavor: { get_param: flavor_backend }
+      image: { get_param: backend_image }
+      flavor: { get_param: backend_flavor }
       key_name: { get_resource: backend_keypair }
       networks:
         - port: { get_resource: backend_port }
@@ -308,8 +333,8 @@ resources:
     type: OS::Nova::Server
     properties:
       name: { get_param: database_vm_name }
-      image: { get_param: image }
-      flavor: { get_param: flavor_database }
+      image: { get_param: database_image }
+      flavor: { get_param: database_flavor }
       key_name: { get_resource: database_keypair }
       networks:
         - port: { get_resource: database_port }
@@ -332,7 +357,7 @@ resources:
         final_message: "Database server initialized successfully."
 
   # STORAGE
-  storage_server:
+  storage_volume:
     type: OS::Cinder::Volume
     properties:
       name: { get_param: storage_vm_name }
@@ -342,7 +367,7 @@ resources:
     type: OS::Cinder::VolumeAttachment
     properties:
       instance_uuid: { get_resource: database_server }
-      volume_id: { get_resource: storage_server }
+      volume_id: { get_resource: storage_volume }
       mountpoint: /dev/vdb
 
 outputs:
