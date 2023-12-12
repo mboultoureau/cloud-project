@@ -1,6 +1,6 @@
-# Projet <i>Cloud</i>
+# Projet Cloud
 
-Ce projet vise à déployer automatiquement une application complexe (<i>frontend</i>, <i>backend</i> et <i>storage</i>) séparés dans trois conteneurs Docker sur une infrastructure OpenStack via un modèle Heat.
+Ce projet vise à déployer automatiquement une application complexe (frontend, backend et storage) séparés dans trois conteneurs Docker sur une infrastructure OpenStack via un modèle Heat.
 
 ## Architecture
 
@@ -11,14 +11,14 @@ Notre architecture est composée de 3 serveurs :
 - Backend : l'API serveur
 - Database : la base de données
 
-Le frontend et le backend sont exposés via une IP publique. Tous les serveurs ont des gabarits adaptés à leurs besoins.
+Le frontend et le backend sont exposés via une IP publique propre à chacun. Tous les serveurs ont des gabarits adaptés à leurs besoins.
 
 ## Installation
 
 - Vérifiez que Docker est installé.
-- Vérifiez que la CLI OpenStack est installé.
-- Télécharger un fichier RC OpenStack et faites un `source fichier_rc.sh`.
-- Lancez le fichier `deploy.sh`. Celle-ci construira et poussera l'image Docker backend sur le registre et lancera la stack. Après quelques secondes le script vous affichera les IP publiques.
+- Vérifiez que la CLI OpenStack est installée.
+- Téléchargez un fichier RC OpenStack et faites un `source fichier_rc.sh`.
+- Exécutez le fichier `deploy.sh`. Celui-ci construira et poussera l'image Docker backend sur le registre et lancera la stack. Après quelques secondes le script vous affichera les IP publiques.
 
 > [!IMPORTANT]  
 > Veuillez notez que le déploiement peut durer plusieurs minutes.
