@@ -21,6 +21,8 @@ services:
       - MYSQL_DATABASE=rolandgarros
     volumes:
       - /mnt/database:/var/lib/mysql
+    ports:
+      - "3306:3306"
 
   # Backend
   backend:
