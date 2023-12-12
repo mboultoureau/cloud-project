@@ -6,9 +6,16 @@ Ce projet vise à déployer automatiquement une application complexe (<i>fronten
 
 ![Architecture](architecture.png)
 
+Notre architecture est composée de 3 serveurs :
+- Frontend : la partie client
+- Backend : l'API serveur
+- Database : la base de données
+
+Le frontend et le backend sont exposés via une IP publique. Tous les serveurs ont des gabarits adaptés à leurs besoins.
+
 ## Installation
 
-Après avoir installé Docker et la CLI d'OpenStack lancé le fichier `deploy.sh` qui construira et poussera l'image Docker backend sur le registre et lancera la stack.
+Après avoir installé Docker et la CLI d'OpenStack lancé le fichier `deploy.sh` qui construira et poussera l'image Docker backend sur le registre et lancera la stack. Après quelques secondes le script vous affichera les IP publiques. Veuillez notez que le déploiement peut durer plusieurs minutes.
 
 Vous pouvez aussi faire cela manuellement :
 
