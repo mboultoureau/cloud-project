@@ -15,7 +15,13 @@ Le frontend et le backend sont exposés via une IP publique. Tous les serveurs o
 
 ## Installation
 
-Après avoir installé Docker et la CLI d'OpenStack lancé le fichier `deploy.sh` qui construira et poussera l'image Docker backend sur le registre et lancera la stack. Après quelques secondes le script vous affichera les IP publiques. Veuillez notez que le déploiement peut durer plusieurs minutes.
+- Vérifiez que Docker est installé.
+- Vérifiez que la CLI OpenStack est installé.
+- Télécharger un fichier RC OpenStack et faites un `source fichier_rc.sh`.
+- Lancez le fichier `deploy.sh`. Celle-ci construira et poussera l'image Docker backend sur le registre et lancera la stack. Après quelques secondes le script vous affichera les IP publiques.
+
+> [!IMPORTANT]  
+> Veuillez notez que le déploiement peut durer plusieurs minutes.
 
 Vous pouvez aussi faire cela manuellement :
 
