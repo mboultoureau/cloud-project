@@ -20,7 +20,7 @@ services:
       - MYSQL_PASSWORD=password
       - MYSQL_DATABASE=rolandgarros
     volumes:
-      - /dev/vdb/database:/var/lib/mysql
+      - /mnt/database:/var/lib/mysql
 
   # Backend
   backend:

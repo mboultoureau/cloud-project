@@ -340,36 +340,44 @@ resources:
       networks:
         - port: { get_resource: database_port }
       user_data_format: RAW
-      user_data: |
-        #cloud-config
-        users:
-          - name: database
-            plain_text_passwd: password
-            home: /home/database
-            lock_passwd: false
-            shell: /bin/bash
-            groups: [sudo, docker]
-        runcmd:
-          - cd /home/database
-          - git clone "https://github.com/mboultoureau/cloud-project"
-          - chown -R database:database cloud-project
-          - cd cloud-project/app
-          - docker compose --env-file ./.env.file up -d mysql
-        final_message: "Database server initialized successfully."
+      user_data:
+        str_replace:
+          template: |
+            #cloud-config
+            users:
+              - name: database
+                plain_text_passwd: password
+                home: /home/database
+                lock_passwd: false
+                shell: /bin/bash
+                groups: [sudo, docker]
+            runcmd:
+              - mkfs.ext4 $MOUNTPOINT
+              - mkdir /mnt/database
+              - mount $MOUNTPOINT /mnt/database
+              - cd /home/database
+              - git clone "https://github.com/mboultoureau/cloud-project"
+              - chown -R database:database cloud-project
+              - cd cloud-project/app
+              - docker compose up -d mysql
+            final_message: "Database server initialized successfully."
+          params:
+            $MOUNTPOINT: { get_param: storage_mountpoint }
+
 
   # STORAGE
   storage_volume:
     type: OS::Cinder::Volume
     properties:
       name: { get_param: storage_vm_name }
-      size: 2
+      size: { get_param: storage_volume_size }
 
   storage_attachment:
     type: OS::Cinder::VolumeAttachment
     properties:
       instance_uuid: { get_resource: database_server }
       volume_id: { get_resource: storage_volume }
-      mountpoint: /dev/vdb
+      mountpoint: { get_param: storage_mountpoint }
 
 outputs:
   # IP ADDRESS
