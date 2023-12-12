@@ -178,6 +178,44 @@ resources:
      floatingip_id: { get_resource: floating_ip_frontend }
      port_id: { get_resource: frontend_port }
 
+  frontend_cloud_config:
+    type: OS::Heat::CloudConfig
+    properties:
+      cloud_config:
+        users:
+        - name: frontend
+          plain_text_passwd: password
+          home: /home/frontend
+          lock_passwd: false
+          shell: /bin/bash
+          groups: [sudo, docker]
+        final_message: "Frontend server initialized successfully."
+
+  frontend_software_config:
+    type: OS::Heat::SoftwareConfig
+    properties:
+      config:
+        str_replace:
+          template: |
+            #!/bin/sh
+            cd /home/frontend
+            git clone "https://github.com/mboultoureau/cloud-project"
+            chown -R frontend:frontend cloud-project
+            cd cloud-project/app
+            echo "FRONTEND_URL=$FRONTEND_IP_ADDRESS" > .env.file
+            echo "BACKEND_URL=$BACKEND_IP_ADDRESS" >> .env.file
+            docker compose --env-file ./.env.file up -d reverse-proxy frontend
+          params:
+            $FRONTEND_IP_ADDRESS: { get_attr: [floating_ip_frontend, floating_ip_address] }
+            $BACKEND_IP_ADDRESS: { get_attr: [floating_ip_backend, floating_ip_address] }
+
+  frontend_multipart_mime:
+    type: OS::Heat::MultipartMime
+    properties:
+      parts:
+      - config: { get_resource: frontend_cloud_config }
+      - config: { get_resource: frontend_software_config }
+
   frontend_server:
     type: OS::Nova::Server
     depends_on:
@@ -190,29 +228,7 @@ resources:
       networks:
         - port: { get_resource: frontend_port }
       user_data_format: RAW
-      user_data:
-        str_replace:
-          template: |
-            #cloud-config
-            users:
-              - name: frontend
-                plain_text_passwd: password
-                home: /home/frontend
-                lock_passwd: false
-                shell: /bin/bash
-                groups: [sudo, docker]
-            runcmd:
-              - cd /home/frontend
-              - git clone "https://github.com/mboultoureau/cloud-project"
-              - chown -R frontend:frontend cloud-project
-              - cd cloud-project/app
-              - echo "FRONTEND_URL=$FRONTEND_IP_ADDRESS" > .env.file
-              - echo "BACKEND_URL=$BACKEND_IP_ADDRESS" >> .env.file
-              - docker compose --env-file ./.env.file up -d reverse-proxy frontend
-            final_message: "Frontend server initialized successfully."
-          params:
-            $FRONTEND_IP_ADDRESS: { get_attr: [floating_ip_frontend, floating_ip_address] }
-            $BACKEND_IP_ADDRESS: { get_attr: [floating_ip_backend, floating_ip_address] }
+      user_data: { get_resource: frontend_multipart_mime }
 
   # BACKEND
   backend_port:
@@ -268,6 +284,46 @@ resources:
      floatingip_id: { get_resource: floating_ip_backend }
      port_id: { get_resource: backend_port }
 
+  backend_cloud_config:
+    type: OS::Heat::CloudConfig
+    properties:
+      cloud_config:
+        users:
+        - name: backend
+          plain_text_passwd: password
+          home: /home/backend
+          lock_passwd: false
+          shell: /bin/bash
+          groups: [sudo, docker]
+        final_message: "Backend server initialized successfully."
+
+  backend_software_config:
+    type: OS::Heat::SoftwareConfig
+    properties:
+      config:
+        str_replace:
+          template: |
+            #!/bin/sh
+            cd /home/backend
+            git clone "https://github.com/mboultoureau/cloud-project"
+            chown -R backend:backend cloud-project
+            cd cloud-project/app
+            echo "BACKEND_URL=$BACKEND_IP_ADDRESS" > .env.file
+            echo "DATABASE_URL=$DATABASE_URL" >> .env.file
+            sleep 60 # Wait for the database to be initialized
+            docker compose --env-file ./.env.file up -d reverse-proxy backend
+          params:
+            $DATABASE_URL: { get_param: database_ip_address }
+            $BACKEND_DOCKER_NAME: { get_param: backend_docker_name }
+            $BACKEND_IP_ADDRESS: { get_attr: [floating_ip_backend, floating_ip_address] }
+
+  backend_multipart_mime:
+    type: OS::Heat::MultipartMime
+    properties:
+      parts:
+      - config: { get_resource: backend_cloud_config }
+      - config: { get_resource: backend_software_config }
+
   backend_server:
     type: OS::Nova::Server
     depends_on:
@@ -280,31 +336,7 @@ resources:
       networks:
         - port: { get_resource: backend_port }
       user_data_format: RAW
-      user_data:
-        str_replace:
-          template: |
-            #cloud-config
-            users:
-              - name: backend
-                plain_text_passwd: password
-                home: /home/backend
-                lock_passwd: false
-                shell: /bin/bash
-                groups: [sudo, docker]
-            runcmd:
-              - cd /home/backend
-              - git clone "https://github.com/mboultoureau/cloud-project"
-              - chown -R backend:backend cloud-project
-              - cd cloud-project/app
-              - echo "BACKEND_URL=$BACKEND_IP_ADDRESS" > .env.file
-              - echo "DATABASE_URL=$DATABASE_URL" >> .env.file
-              - sleep 60 # Wait for the database to be initialized
-              - docker compose --env-file ./.env.file up -d reverse-proxy backend
-            final_message: "Backend server initialized successfully."
-          params:
-            $DATABASE_URL: { get_param: database_ip_address }
-            $BACKEND_DOCKER_NAME: { get_param: backend_docker_name }
-            $BACKEND_IP_ADDRESS: { get_attr: [floating_ip_backend, floating_ip_address] }
+      user_data: { get_resource: backend_multipart_mime }
 
   # DATABASE
   database_port:
@@ -340,6 +372,44 @@ resources:
           port_range_min: 3306
           port_range_max: 3306
 
+  database_cloud_config:
+    type: OS::Heat::CloudConfig
+    properties:
+      cloud_config:
+        users:
+        - name: database
+          plain_text_passwd: password
+          home: /home/database
+          lock_passwd: false
+          shell: /bin/bash
+          groups: [sudo, docker]
+        final_message: "Database server initialized successfully."
+
+  database_software_config:
+    type: OS::Heat::SoftwareConfig
+    properties:
+      config:
+        str_replace:
+          template: |
+            #!/bin/sh
+            mkfs.ext4 $MOUNTPOINT
+            mkdir /mnt/database
+            mount $MOUNTPOINT /mnt/database
+            cd /home/database
+            git clone "https://github.com/mboultoureau/cloud-project"
+            chown -R database:database cloud-project
+            cd cloud-project/app
+            docker compose up -d mysql
+          params:
+            $MOUNTPOINT: { get_param: storage_mountpoint }
+
+  database_multipart_mime:
+    type: OS::Heat::MultipartMime
+    properties:
+      parts:
+      - config: { get_resource: database_cloud_config }
+      - config: { get_resource: database_software_config }
+
   database_server:
     type: OS::Nova::Server
     properties:
@@ -350,30 +420,7 @@ resources:
       networks:
         - port: { get_resource: database_port }
       user_data_format: RAW
-      user_data:
-        str_replace:
-          template: |
-            #cloud-config
-            users:
-              - name: database
-                plain_text_passwd: password
-                home: /home/database
-                lock_passwd: false
-                shell: /bin/bash
-                groups: [sudo, docker]
-            runcmd:
-              - mkfs.ext4 $MOUNTPOINT
-              - mkdir /mnt/database
-              - mount $MOUNTPOINT /mnt/database
-              - cd /home/database
-              - git clone "https://github.com/mboultoureau/cloud-project"
-              - chown -R database:database cloud-project
-              - cd cloud-project/app
-              - docker compose up -d mysql
-            final_message: "Database server initialized successfully."
-          params:
-            $MOUNTPOINT: { get_param: storage_mountpoint }
-
+      user_data: { get_resource: database_multipart_mime }
 
   # STORAGE
   storage_volume:
