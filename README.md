@@ -17,6 +17,7 @@ Le frontend et le backend sont exposés via une IP publique propre à chacun. To
 
 - Vérifiez que Docker est installé.
 - Vérifiez que la CLI OpenStack est installée.
+- Vérifiez que le registre (`148.60.225.81:5000`) soit bien enregistré en insecure-registries car il fonctionne uniquement en HTTP.
 - Téléchargez un fichier RC OpenStack et faites un `source fichier_rc.sh`.
 - Exécutez le fichier `deploy.sh`. Celui-ci construira et poussera l'image Docker backend sur le registre et lancera la stack. Après quelques secondes le script vous affichera les IP publiques.
 
