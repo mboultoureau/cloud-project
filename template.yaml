@@ -328,7 +328,17 @@ resources:
     type: OS::Neutron::SecurityGroup
     properties:
       name: database_security_group
-      rules: []
+      rules:
+        # SSH
+        - direction: ingress
+          protocol: tcp
+          port_range_min: 22
+          port_range_max: 22
+        # MySQL
+        - direction: ingress
+          protocol: tcp
+          port_range_min: 3306
+          port_range_max: 3306
 
   database_server:
     type: OS::Nova::Server
