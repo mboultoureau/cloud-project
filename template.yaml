@@ -297,11 +297,12 @@ resources:
               - chown -R backend:backend cloud-project
               - cd cloud-project/app
               - echo "BACKEND_URL=$BACKEND_IP_ADDRESS" > .env.file
+              - echo "DATABASE_URL=$DATABASE_URL" > .env.file
               - sleep 60 # Wait for the database to be initialized
               - docker compose --env-file ./.env.file up -d reverse-proxy backend
             final_message: "Backend server initialized successfully."
           params:
-            $MYSQL_ADDRESS: { get_param: database_ip_address }
+            $DATABASE_URL: { get_param: database_ip_address }
             $BACKEND_DOCKER_NAME: { get_param: backend_docker_name }
             $BACKEND_IP_ADDRESS: { get_attr: [floating_ip_backend, floating_ip_address] }
 

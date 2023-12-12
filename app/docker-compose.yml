@@ -26,14 +26,12 @@ services:
   backend:
     image: 148.60.225.81:5000/iai3_10_backend:latest
     command: mvn -o spring-boot:run
-    depends_on:
-      - mysql
     volumes:
       - ./backend:/app
     labels:
       - "traefik.http.routers.backend.rule=Host(`${BACKEND_URL:-backend.localhost}`)"
     environment:
-      - DATABASE_URL=mysql
+      - DATABASE_URL=${DATABASE_URL:-mysql}
       - APP_PORT=80
       - BACKEND_URL=${BACKEND_URL:-backend.localhost}
 
