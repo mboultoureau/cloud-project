@@ -1,6 +1,6 @@
 # Roland Garros
 
-Clone of the Roland Garros website, created as part of the computer engineering studies program at ENSSAT.
+Clone of the Roland Garros website, created as part of the computer engineering studies program at ENSSAT. Original project available on [github.com/mboultoureau/roland-garros](https://github.com/mboultoureau/roland-garros).
 
 ![Screenshot of the ranking page](screenshot.png)
 
