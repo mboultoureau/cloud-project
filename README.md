@@ -40,7 +40,7 @@ openstack stack update --template template.yaml cloud-project
 openstack stack delete cloud-project
 ```
 
-### Accès en débogage
+## Accès en débogage
 
 * `ssh frontend@<frontend_instance_public_IP>` puis saisir le mot de passe `password`.
 * `ssh backend@<backend_instance_public_IP>` puis saisir le mot de passe `password`.
