@@ -11,10 +11,6 @@ parameters:
     type: string
     description: CIDR of the subnetwork
     default: 10.100.0.0/24
-  external_subnet:
-    type: string
-    description: name of the external subnetwork
-    default: External-subnet
   gateway_name:
     type: string
     description: Gateway IP of the subnetwork
@@ -27,10 +23,18 @@ parameters:
     type: string
     description: Name or ID of image to use for servers
     default: debian12_docker
-  flavor:
+  flavor_frontend:
     type: string
-    description: Name of Flavor to use for servers
+    description: Name of flavor for frontend server
+    default: m1.mini
+  flavor_backend:
+    type: string
+    description: Name of flavor for backend server
     default: m1.medium
+  flavor_database:
+    type: string
+    description: Name of flavor for database server
+    default: m1.mini
 
   # FRONTEND
   frontend_vm_name:
@@ -156,7 +160,7 @@ resources:
     properties:
       name: { get_param: frontend_vm_name }
       image: { get_param: image }
-      flavor: { get_param: flavor }
+      flavor: { get_param: flavor_frontend }
       key_name: { get_resource: frontend_keypair }
       networks:
         - port: { get_resource: frontend_port }
@@ -246,7 +250,7 @@ resources:
     properties:
       name: { get_param: backend_vm_name }
       image: { get_param: image }
-      flavor: { get_param: flavor }
+      flavor: { get_param: flavor_backend }
       key_name: { get_resource: backend_keypair }
       networks:
         - port: { get_resource: backend_port }
@@ -305,7 +309,7 @@ resources:
     properties:
       name: { get_param: database_vm_name }
       image: { get_param: image }
-      flavor: { get_param: flavor }
+      flavor: { get_param: flavor_database }
       key_name: { get_resource: database_keypair }
       networks:
         - port: { get_resource: database_port }
@@ -342,9 +346,14 @@ resources:
       mountpoint: /dev/vdb
 
 outputs:
+  # IP ADDRESS
   frontend_ip_address:
     value: { get_attr: [floating_ip_frontend, floating_ip_address] }
 
+  backend_ip_address:
+    value: { get_attr: [floating_ip_backend, floating_ip_address] }
+
+  # PRIVATE KEYS
   frontend_private_key:
     value: { get_attr: [frontend_keypair, private_key] }
 
