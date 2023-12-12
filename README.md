@@ -4,6 +4,8 @@ Ce projet vise à déployer automatiquement une application complexe (<i>fronten
 
 ## Architecture
 
+![Architecture](architecture.png)
+
 ## Installation
 
 Après avoir installé Docker et la CLI d'OpenStack lancé le fichier `deploy.sh` qui construira et poussera l'image Docker backend sur le registre et lancera la stack.
