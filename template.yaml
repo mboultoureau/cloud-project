@@ -26,7 +26,7 @@ parameters:
   flavor_frontend:
     type: string
     description: Name of flavor for frontend server
-    default: m1.mini
+    default: m1.medium
   flavor_backend:
     type: string
     description: Name of flavor for backend server

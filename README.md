@@ -17,12 +17,12 @@ openstack stack delete cloud-project
 
 ### Accès en débogage
 
-* `ssh frontend@<frontend_instance_public_IP>` puis saisir le mot de passe `frontend`.
-* `ssh backend@<backend_instance_public_IP>` puis saisir le mot de passe `backend`.
+* `ssh frontend@<frontend_instance_public_IP>` puis saisir le mot de passe `password`.
+* `ssh backend@<backend_instance_public_IP>` puis saisir le mot de passe `password`.
 
 Pour accéder au serveur `database` qui ne dispose pas d’adresse publique, on procède par rebond depuis le serveur `backend` :
 
-* `ssh database@<database_instance_private_IP>` puis saisir le mot de passe `database`.
+* `ssh database@<database_instance_private_IP>` puis saisir le mot de passe `password`.
 
 Vous pouvez aussi utiliser les keypairs générées et visibles dans les sorties.
 
